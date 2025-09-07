@@ -24,6 +24,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# DB files
+*.db
+
 # PWA files
 dev-dist/
 sw.js

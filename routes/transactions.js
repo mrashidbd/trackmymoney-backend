@@ -4,40 +4,70 @@ import DatabaseManager from '../database/DatabaseManager.js';
 const router = express.Router();
 
 // Get all transactions for current year
+// Get all transactions for current year with pagination
 router.get('/', (req, res) => {
     const userId = req.user.id;
     const year = req.query.year || new Date().getFullYear();
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = (page - 1) * limit;
+
     const db = DatabaseManager.getConnection(userId, year);
 
-    const query = `
-        SELECT t.*, c.name as category_name, c.type as category_type
-        FROM transactions t
-        LEFT JOIN categories c ON t.category_id = c.id
-        ORDER BY t.date DESC, t.id DESC
-    `;
+    // Get total count first
+    const countQuery = 'SELECT COUNT(*) as total FROM transactions';
 
-    db.all(query, [], (err, transactions) => {
+    db.get(countQuery, [], (err, countResult) => {
         if (err) {
-            console.error('Error fetching transactions:', err);
+            console.error('Error counting transactions:', err);
             return res.status(500).json({
                 success: false,
-                message: 'Failed to fetch transactions'
+                message: 'Failed to count transactions'
             });
         }
 
-        res.json({
-            success: true,
-            data: transactions.map(t => ({
-                id: t.id,
-                amount: parseFloat(t.amount),
-                date: t.date,
-                type: t.type,
-                categoryId: t.category_id,
-                categoryName: t.category_name,
-                description: t.description || '',
-                createdAt: t.created_at,
-                updatedAt: t.updated_at
-            }))
+        const totalCount = countResult.total;
+        const totalPages = Math.ceil(totalCount / limit);
+
+        // Get paginated transactions
+        const query = `
+            SELECT t.*, c.name as category_name, c.type as category_type
+            FROM transactions t
+            LEFT JOIN categories c ON t.category_id = c.id
+            ORDER BY t.date DESC, t.id DESC
+            LIMIT ? OFFSET ?
+        `;
+
+        db.all(query, [limit, offset], (err, transactions) => {
+            if (err) {
+                console.error('Error fetching transactions:', err);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Failed to fetch transactions'
+                });
+            }
+
+            res.json({
+                success: true,
+                data: transactions.map(t => ({
+                    id: t.id,
+                    amount: parseFloat(t.amount),
+                    date: t.date,
+                    type: t.type,
+                    categoryId: t.category_id,
+                    categoryName: t.category_name,
+                    description: t.description || '',
+                    createdAt: t.created_at,
+                    updatedAt: t.updated_at
+                })),
+                pagination: {
+                    currentPage: page,
+                    totalPages,
+                    totalCount,
+                    hasNextPage: page < totalPages,
+                    hasPrevPage: page > 1
+                }
+            });
         });
     });
 });

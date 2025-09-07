@@ -80,6 +80,9 @@ class DatabaseManager {
             CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
             CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category_id);
             CREATE INDEX IF NOT EXISTS idx_categories_type ON categories(type);
+            CREATE INDEX IF NOT EXISTS idx_transactions_user_year ON transactions(date);
+            CREATE INDEX IF NOT EXISTS idx_transactions_amount ON transactions(amount);
+            CREATE INDEX IF NOT EXISTS idx_categories_user_type ON categories(type, name);
         `;
 
         db.exec(schema, (err) => {

@@ -20,25 +20,44 @@ class User {
 
         const schema = `
             CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                name TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                last_login DATETIME,
-                is_active BOOLEAN DEFAULT 1
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 username TEXT UNIQUE NOT NULL,
+                 password_hash TEXT NOT NULL,
+                 name TEXT NOT NULL,
+                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                 last_login DATETIME,
+                 is_active BOOLEAN DEFAULT 1
             );
-
-            -- Insert default admin user if not exists
-            INSERT OR IGNORE INTO users (id, username, password_hash, name) 
-            VALUES (1, 'admin', '$2a$10$rOjLpNZmyqhRjGtqN5K9dOYxM5N5q5J5q5J5q5J5q5J5q5J5q5J5q', 'Admin User');
         `;
 
-        db.exec(schema, (err) => {
+        db.exec(schema, async (err) => {
             if (err) {
                 console.error('Error initializing users database:', err);
+                db.close();
+                return;
             }
-            db.close();
+
+            // Check if admin user exists, if not create it
+            db.get('SELECT id FROM users WHERE username = ?', ['admin'], async (err, user) => {
+                if (!user) {
+                    try {
+                        const hashedPassword = await bcrypt.hash('admin123', 10);
+                        db.run(
+                            'INSERT INTO users (id, username, password_hash, name) VALUES (?, ?, ?, ?)',
+                            [1, 'admin', hashedPassword, 'Admin User'],
+                            (err) => {
+                                if (err) console.error('Error creating admin user:', err);
+                                db.close();
+                            }
+                        );
+                    } catch (error) {
+                        console.error('Error hashing password:', error);
+                        db.close();
+                    }
+                } else {
+                    db.close();
+                }
+            });
         });
     }
 
