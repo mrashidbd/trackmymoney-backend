@@ -3,9 +3,19 @@ import DatabaseManager from '../database/DatabaseManager.js';
 
 const router = express.Router();
 
+// Helper to get userId from query or req.user
+const getUserId = (req) => {
+    // If superadmin and userId is provided in query, use that
+    if (req.user.role === 'superadmin' && req.query.userId) {
+        return parseInt(req.query.userId);
+    }
+    // Otherwise use the authenticated user's ID
+    return req.user.id;
+};
+
 // Get all categories for current year
 router.get('/', (req, res) => {
-    const userId = req.user.id;
+    const userId = getUserId(req);
     const year = req.query.year || new Date().getFullYear();
     const db = DatabaseManager.getConnection(userId, year);
 
@@ -38,7 +48,7 @@ router.get('/', (req, res) => {
 
 // Add new category
 router.post('/', (req, res) => {
-    const userId = req.user.id;
+    const userId = getUserId(req);
     const year = req.query.year || new Date().getFullYear();
     const { name, type } = req.body;
 
@@ -102,7 +112,7 @@ router.post('/', (req, res) => {
 
 // Update category
 router.put('/:id', (req, res) => {
-    const userId = req.user.id;
+    const userId = getUserId(req);
     const year = req.query.year || new Date().getFullYear();
     const categoryId = req.params.id;
     const { name } = req.body;
@@ -167,7 +177,7 @@ router.put('/:id', (req, res) => {
 
 // Delete category
 router.delete('/:id', (req, res) => {
-    const userId = req.user.id;
+    const userId = getUserId(req);
     const year = req.query.year || new Date().getFullYear();
     const categoryId = req.params.id;
     const db = DatabaseManager.getConnection(userId, year);

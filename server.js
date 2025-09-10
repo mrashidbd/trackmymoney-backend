@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import usersRoutes from './routes/users.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -70,6 +71,9 @@ app.use('/api/auth', authRoutes);
 // Protected routes
 app.use('/api/categories', authenticateToken, categoriesRoutes);
 app.use('/api/transactions', authenticateToken, transactionsRoutes);
+
+// User routes
+app.use('/api/users', authenticateToken, usersRoutes);
 
 // Get available years for user
 app.get('/api/years', authenticateToken, (req, res) => {

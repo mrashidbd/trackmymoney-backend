@@ -23,7 +23,12 @@ export const authenticateToken = async (req, res, next) => {
             });
         }
 
-        req.user = user;
+        req.user = {
+            id: user.id,
+            username: user.username,
+            name: user.name,
+            role: user.role || 'user'
+        };
         next();
     } catch (error) {
         console.error('Authentication error:', error);

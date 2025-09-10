@@ -37,7 +37,8 @@ router.post('/login', async (req, res) => {
             user: {
                 id: user.id,
                 username: user.username,
-                name: user.name
+                name: user.name,
+                role: user.role || 'user',
             }
         });
     } catch (error) {
@@ -129,7 +130,8 @@ router.get('/verify', async (req, res) => {
             user: {
                 id: user.id,
                 username: user.username,
-                name: user.name
+                name: user.name,
+                role: user.role || 'user'
             }
         });
     } catch (error) {

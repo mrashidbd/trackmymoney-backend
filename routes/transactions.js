@@ -1,12 +1,21 @@
 import express from 'express';
 import DatabaseManager from '../database/DatabaseManager.js';
 
+// Helper to get userId from query or req.user
+const getUserId = (req) => {
+    // If superadmin and userId is provided in query, use that
+    if (req.user.role === 'superadmin' && req.query.userId) {
+        return parseInt(req.query.userId);
+    }
+    // Otherwise use the authenticated user's ID
+    return req.user.id;
+};
+
 const router = express.Router();
 
-// Get all transactions for current year
 // Get all transactions for current year with pagination
 router.get('/', (req, res) => {
-    const userId = req.user.id;
+    const userId = getUserId(req);
     const year = req.query.year || new Date().getFullYear();
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
@@ -74,7 +83,7 @@ router.get('/', (req, res) => {
 
 // Get transactions by date range
 router.get('/range', (req, res) => {
-    const userId = req.user.id;
+    const userId = getUserId(req);
     const year = req.query.year || new Date().getFullYear();
     const { startDate, endDate } = req.query;
 
@@ -123,7 +132,7 @@ router.get('/range', (req, res) => {
 
 // Add new transaction
 router.post('/', (req, res) => {
-    const userId = req.user.id;
+    const userId = getUserId(req);
     const { amount, date, type, categoryId, description } = req.body;
 
     if (!amount || !date || !type || !categoryId) {
@@ -223,7 +232,7 @@ router.post('/', (req, res) => {
 
 // Update transaction
 router.put('/:id', (req, res) => {
-    const userId = req.user.id;
+    const userId = getUserId(req);
     const transactionId = req.params.id;
     const { amount, date, type, categoryId, description } = req.body;
 
@@ -324,7 +333,7 @@ router.put('/:id', (req, res) => {
 
 // Delete transaction
 router.delete('/:id', (req, res) => {
-    const userId = req.user.id;
+    const userId = getUserId(req);
     const transactionId = req.params.id;
     const year = req.query.year || new Date().getFullYear();
     const db = DatabaseManager.getConnection(userId, year);
@@ -358,7 +367,7 @@ router.delete('/:id', (req, res) => {
 
 // Get statistics
 router.get('/stats', (req, res) => {
-    const userId = req.user.id;
+    const userId = getUserId(req);
     const year = req.query.year || new Date().getFullYear();
     const db = DatabaseManager.getConnection(userId, year);
 
